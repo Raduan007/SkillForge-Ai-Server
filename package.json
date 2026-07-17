@@ -3,20 +3,46 @@
   "scripts": {
     "build": "tsc",
     "start": "tsc && node dist/server.js",
-    "dev": "tsx watch src/server.ts"
+    "dev": "tsx watch src/server.ts",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "postinstall": "node scripts/postinstall.mjs"
   },
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.7.4",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.1.1",
+    "@typescript-eslint/eslint-plugin": "^8.64.0",
+    "@typescript-eslint/parser": "^8.64.0",
+    "@typescript/typescript6": "^6.0.2",
+    "eslint": "^10.7.0",
     "tsx": "^4.23.1",
     "typescript": "^7.0.2"
+  },
+  "overrides": {
+    "@typescript-eslint/typescript-estree": {
+      "typescript": "@typescript/typescript6"
+    },
+    "@typescript-eslint/type-utils": {
+      "typescript": "@typescript/typescript6"
+    },
+    "@typescript-eslint/utils": {
+      "typescript": "@typescript/typescript6"
+    },
+    "@typescript-eslint/project-service": {
+      "typescript": "@typescript/typescript6"
+    },
+    "@typescript-eslint/tsconfig-utils": {
+      "typescript": "@typescript/typescript6"
+    }
   }
 }

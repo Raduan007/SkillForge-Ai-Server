@@ -1,0 +1,17 @@
+{
+  "profiles": {
+    "user_default": {
+      "name": "Developer Pathfinder",
+      "level": "Beginner",
+      "streak": 3,
+      "lastActive": "2026-07-17T16:20:30.857Z",
+      "completedNodes": [],
+      "badges": [
+        "Pathfinder Initiated"
+      ],
+      "recommendedCareers": []
+    }
+  },
+  "roadmaps": {},
+  "quizzes": {}
+}

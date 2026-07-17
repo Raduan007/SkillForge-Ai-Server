@@ -21,8 +21,7 @@ export class RoadmapController {
             res.status(200).json(result);
         }
         catch (error) {
-            console.error("Error in getRoadmaps controller:", error);
-            res.status(500).json({ error: "Internal Server Error" });
+            next(error);
         }
     }
     /**
@@ -44,8 +43,7 @@ export class RoadmapController {
             res.status(200).json(roadmap);
         }
         catch (error) {
-            console.error("Error in getRoadmapBySlug controller:", error);
-            res.status(500).json({ error: "Internal Server Error" });
+            next(error);
         }
     }
 }

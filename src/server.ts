@@ -9,10 +9,26 @@ import { RoadmapService } from "./services/roadmapService.js";
 import roadmapRouter from "./routes/roadmapRoutes.js";
 import quizRouter from "./routes/quizRoutes.js";
 import copilotRouter from "./routes/copilotRoutes.js";
+import dns from "dns";
+
+if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+  try {
+    dns.setServers(["8.8.8.8", "8.8.4.4"]);
+  } catch (_e) {
+    // Ignore DNS override errors
+  }
+}
 
 dotenv.config();
 
+// ─── Environment Validation ──────────────────────────────────────────────────
+// Importing jwtConfig triggers validation of required JWT environment variables.
+// If any are missing the module throws and the process exits before binding a port.
+import { jwtConfig } from "./config/jwtConfig.js";
+console.log(`[JWT] Configuration loaded — access tokens expire in ${jwtConfig.accessExpiresIn}`);
+
 const __filename = fileURLToPath(import.meta.url);
+
 const __dirname = path.dirname(__filename);
 
 const app = express();
