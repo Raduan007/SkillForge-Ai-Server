@@ -213,14 +213,14 @@ app.get('/api/profile', (req, res) => {
 app.post('/api/profile/update-streak', (req, res) => {
   const db = app.locals.readDB();
   const profile = db.profiles.user_default;
-  
+
   const lastActiveDate = new Date(profile.lastActive);
   const today = new Date();
-  
+
   // Calculate difference in days
   const diffTime = Math.abs(today - lastActiveDate);
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
+
   if (diffDays === 1) {
     profile.streak += 1;
     if (profile.streak === 5 && !profile.badges.includes("Consistent Learner")) {
@@ -229,11 +229,11 @@ app.post('/api/profile/update-streak', (req, res) => {
   } else if (diffDays > 1) {
     profile.streak = 1; // Reset streak
   }
-  
+
   profile.lastActive = today.toISOString();
   db.profiles.user_default = profile;
   app.locals.writeDB(db);
-  
+
   res.json(profile);
 });
 
