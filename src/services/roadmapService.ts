@@ -1,5 +1,7 @@
 import Roadmap, { IRoadmap } from "../models/Roadmap.js";
 
+const CARD_FIELDS = "_id slug title shortDescription coverImage difficulty duration rating totalRatings category";
+
 interface GetRoadmapsParams {
   page: number;
   limit: number;
@@ -52,7 +54,7 @@ export class RoadmapService {
     // 3. Perform Paginated Queries
     const skip = (page - 1) * limit;
     const [roadmaps, total] = await Promise.all([
-      Roadmap.find(query).sort(sortCriteria).skip(skip).limit(limit).lean(),
+      Roadmap.find(query).select(CARD_FIELDS).sort(sortCriteria).skip(skip).limit(limit).lean(),
       Roadmap.countDocuments(query),
     ]);
 
@@ -350,11 +352,10 @@ export class RoadmapService {
    * Returns lightweight card data only.
    */
   static async getFeaturedRoadmaps(): Promise<IRoadmap[]> {
-    const cardFields = "title slug shortDescription coverImage category difficulty duration rating totalRatings createdAt";
     return Roadmap.find({ isPublished: true, isFeatured: true })
       .sort({ rating: -1, totalRatings: -1 })
       .limit(4)
-      .select(cardFields)
+      .select(CARD_FIELDS)
       .lean();
   }
 
@@ -363,11 +364,10 @@ export class RoadmapService {
    * Returns lightweight card data only.
    */
   static async getPopularRoadmaps(): Promise<IRoadmap[]> {
-    const cardFields = "title slug shortDescription coverImage category difficulty duration rating totalRatings createdAt";
     return Roadmap.find({ isPublished: true })
       .sort({ rating: -1, totalRatings: -1 })
       .limit(8)
-      .select(cardFields)
+      .select(CARD_FIELDS)
       .lean();
   }
 
@@ -376,11 +376,18 @@ export class RoadmapService {
    * Returns lightweight card data only.
    */
   static async getLatestRoadmaps(): Promise<IRoadmap[]> {
-    const cardFields = "title slug shortDescription coverImage category difficulty duration rating totalRatings createdAt";
     return Roadmap.find({ isPublished: true })
       .sort({ createdAt: -1 })
       .limit(8)
-      .select(cardFields)
+      .select(CARD_FIELDS)
       .lean();
+  }
+
+  /**
+   * Retrieve unique, alphabetically sorted categories of published roadmaps from MongoDB.
+   */
+  static async getCategories(): Promise<string[]> {
+    const categories = await Roadmap.distinct("category", { isPublished: true });
+    return categories.sort((a: string, b: string) => a.localeCompare(b));
   }
 }

@@ -10,6 +10,7 @@ import roadmapRouter from "./routes/roadmapRoutes.js";
 import quizRouter from "./routes/quizRoutes.js";
 import copilotRouter from "./routes/copilotRoutes.js";
 import authRouter from "./routes/authRoutes.js";
+import categoryRouter from "./routes/categoryRoutes.js";
 import dns from "dns";
 
 if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
@@ -104,6 +105,7 @@ mongoose
 // Mount Routes
 app.use("/api/auth", authRouter);
 app.use("/api/roadmaps", roadmapRouter);
+app.use("/api/categories", categoryRouter);
 app.use("/api/quiz", quizRouter);
 app.use("/api/copilot", copilotRouter);
 

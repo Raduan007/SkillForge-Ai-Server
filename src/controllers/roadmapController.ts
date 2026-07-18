@@ -91,4 +91,17 @@ export class RoadmapController {
       next(error);
     }
   }
+
+  /**
+   * GET /api/categories
+   * Retrieves unique, alphabetically sorted categories dynamically from MongoDB.
+   */
+  static async getCategories(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const categories = await RoadmapService.getCategories();
+      sendOk(res, 200, categories);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
