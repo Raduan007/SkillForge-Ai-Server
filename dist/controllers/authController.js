@@ -1,153 +1,147 @@
+/**
+ * Auth Controller
+ *
+ * Thin controller layer — every handler delegates business logic to AuthService
+ * and uses the centralized apiResponse helpers to guarantee a consistent
+ * response envelope across all endpoints.
+ *
+ * Endpoints:
+ *   POST /api/auth/register  — create a new local account
+ *   POST /api/auth/login     — authenticate and receive a JWT
+ *   GET  /api/auth/me        — return the authenticated user's profile
+ *
+ * Note: Google OAuth and role middleware are deferred to a later phase.
+ */
 import * as authService from "../services/authService.js";
 import { registerSchema, loginSchema } from "../validations/authValidation.js";
 import { verifyAccessToken } from "../utils/jwtUtils.js";
+import { sendOk, sendFail } from "../utils/apiResponse.js";
+// ─── Register ─────────────────────────────────────────────────────────────────
 /**
- * Register a new user.
  * POST /api/auth/register
+ *
+ * 1. Validate request body (Zod).
+ * 2. Delegate to authService.registerUser().
+ * 3. Return 201 + { user, accessToken } on success.
+ *
+ * Error map:
+ *   400 — validation failure
+ *   409 — duplicate email
+ *   500 — unexpected server error
  */
 export const register = async (req, res) => {
     try {
-        // 1. Validate request body against schema
-        const parsedData = registerSchema.safeParse(req.body);
-        if (!parsedData.success) {
-            res.status(400).json({
-                success: false,
-                error: "Validation failed",
-                details: parsedData.error.issues,
-            });
+        const parsed = registerSchema.safeParse(req.body);
+        if (!parsed.success) {
+            sendFail(res, 400, "Validation failed", parsed.error.issues);
             return;
         }
-        // 2. Call service layer
-        const result = await authService.registerUser(parsedData.data);
-        // 3. Handle service result
+        const result = await authService.registerUser(parsed.data);
         if (!result.success) {
-            res.status(result.statusCode).json({
-                success: false,
-                error: result.error,
-            });
+            sendFail(res, result.statusCode, result.error);
             return;
         }
-        // 4. Send success response
-        res.status(201).json({
-            success: true,
-            data: result.data,
-        });
+        sendOk(res, 201, result.data);
     }
-    catch (error) {
-        console.error("[AuthController] register error:", error);
-        res.status(500).json({
-            success: false,
-            error: "An unexpected error occurred during registration.",
-        });
+    catch (err) {
+        console.error("[AuthController] register:", err);
+        sendFail(res, 500, "An unexpected error occurred during registration.");
     }
 };
+// ─── Login ────────────────────────────────────────────────────────────────────
 /**
- * Login user.
  * POST /api/auth/login
+ *
+ * 1. Validate request body (Zod).
+ * 2. Delegate to authService.loginUser() — bcrypt compare + lastLogin update.
+ * 3. Return 200 + { user, accessToken } on success.
+ *
+ * Error map:
+ *   400 — validation failure
+ *   401 — invalid email or password
+ *   403 — account deactivated
+ *   500 — unexpected server error
  */
 export const login = async (req, res) => {
     try {
-        // 1. Validate request body against schema
-        const parsedData = loginSchema.safeParse(req.body);
-        if (!parsedData.success) {
-            res.status(400).json({
-                success: false,
-                error: "Validation failed",
-                details: parsedData.error.issues,
-            });
+        const parsed = loginSchema.safeParse(req.body);
+        if (!parsed.success) {
+            sendFail(res, 400, "Validation failed", parsed.error.issues);
             return;
         }
-        // 2. Call service layer
-        const result = await authService.loginUser(parsedData.data);
-        // 3. Handle service result
+        const result = await authService.loginUser(parsed.data);
         if (!result.success) {
-            res.status(result.statusCode).json({
-                success: false,
-                error: result.error,
-            });
+            sendFail(res, result.statusCode, result.error);
             return;
         }
-        // 4. Send success response
-        res.status(200).json({
-            success: true,
-            data: result.data,
-        });
+        sendOk(res, 200, result.data);
     }
-    catch (error) {
-        console.error("[AuthController] login error:", error);
-        res.status(500).json({
-            success: false,
-            error: "An unexpected error occurred during login.",
-        });
+    catch (err) {
+        console.error("[AuthController] login:", err);
+        sendFail(res, 500, "An unexpected error occurred during login.");
     }
 };
+// ─── Current User ─────────────────────────────────────────────────────────────
 /**
- * Get current user profile.
  * GET /api/auth/me
  *
- * Extracts the JWT token from the Authorization header and verifies it manually.
+ * Protected endpoint — no middleware yet, so the token is read and verified
+ * inline here. Once auth middleware is introduced, this controller shrinks to
+ * a simple `req.user` read.
+ *
+ * 1. Extract Bearer token from Authorization header.
+ * 2. Verify JWT signature and expiry.
+ * 3. Load user by `sub` claim via authService.getUserById().
+ * 4. Return 200 + SafeUser (password hash is NEVER included).
+ *
+ * Error map:
+ *   401 — missing / invalid / expired token
+ *   403 — account deactivated
+ *   404 — user not found (token valid but user deleted)
+ *   500 — unexpected server error
  */
 export const me = async (req, res) => {
     try {
+        // ── 1. Extract token ──────────────────────────────────────────────────────
         const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            res.status(401).json({
-                success: false,
-                error: "Authentication required. Please provide a Bearer token in the Authorization header.",
-            });
+        if (!authHeader?.startsWith("Bearer ")) {
+            sendFail(res, 401, "Authentication required. Provide a Bearer token in the Authorization header.");
             return;
         }
         const token = authHeader.split(" ")[1];
         if (!token) {
-            res.status(401).json({
-                success: false,
-                error: "Authentication token missing.",
-            });
+            sendFail(res, 401, "Authentication token is missing.");
             return;
         }
-        // Verify token
+        // ── 2. Verify token ───────────────────────────────────────────────────────
         let decoded;
         try {
             decoded = verifyAccessToken(token);
         }
         catch (err) {
-            if (err.name === "TokenExpiredError") {
-                res.status(401).json({
-                    success: false,
-                    error: "Authentication token has expired.",
-                });
+            const name = err instanceof Error ? err.name : "";
+            if (name === "TokenExpiredError") {
+                sendFail(res, 401, "Authentication token has expired.");
                 return;
             }
-            res.status(401).json({
-                success: false,
-                error: "Invalid authentication token.",
-            });
+            sendFail(res, 401, "Invalid authentication token.");
             return;
         }
         if (!decoded.sub) {
-            res.status(401).json({
-                success: false,
-                error: "Invalid authentication token payload.",
-            });
+            sendFail(res, 401, "Invalid authentication token payload.");
             return;
         }
-        // Fetch user details
+        // ── 3. Load user ──────────────────────────────────────────────────────────
         const user = await authService.getUserById(decoded.sub);
         if (!user) {
-            res.status(404).json({
-                success: false,
-                error: "User not found.",
-            });
+            sendFail(res, 404, "User not found.");
             return;
         }
         if (!user.isActive) {
-            res.status(403).json({
-                success: false,
-                error: "Your account has been deactivated. Please contact support.",
-            });
+            sendFail(res, 403, "Your account has been deactivated. Please contact support.");
             return;
         }
-        // Convert Mongoose document to plain SafeUser
+        // ── 4. Return safe user (no password hash) ─────────────────────────────
         const safeUser = {
             _id: user._id.toString(),
             name: user.name,
@@ -161,18 +155,10 @@ export const me = async (req, res) => {
             createdAt: user.createdAt,
             updatedAt: user.updatedAt,
         };
-        res.status(200).json({
-            success: true,
-            data: {
-                user: safeUser,
-            },
-        });
+        sendOk(res, 200, { user: safeUser });
     }
-    catch (error) {
-        console.error("[AuthController] me error:", error);
-        res.status(500).json({
-            success: false,
-            error: "An unexpected error occurred while fetching user profile.",
-        });
+    catch (err) {
+        console.error("[AuthController] me:", err);
+        sendFail(res, 500, "An unexpected error occurred while fetching your profile.");
     }
 };
