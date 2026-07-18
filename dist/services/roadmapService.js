@@ -325,4 +325,40 @@ export class RoadmapService {
         await Roadmap.insertMany(seedData);
         console.log("Successfully seeded 12 mock career roadmaps into MongoDB!");
     }
+    /**
+     * Fetch only featured career roadmaps. Limit to 4 items, sorted by rating descending.
+     * Returns lightweight card data only.
+     */
+    static async getFeaturedRoadmaps() {
+        const cardFields = "title slug shortDescription coverImage category difficulty duration rating totalRatings createdAt";
+        return Roadmap.find({ isPublished: true, isFeatured: true })
+            .sort({ rating: -1, totalRatings: -1 })
+            .limit(4)
+            .select(cardFields)
+            .lean();
+    }
+    /**
+     * Fetch top 8 highest-rated roadmaps, sorted by rating descending.
+     * Returns lightweight card data only.
+     */
+    static async getPopularRoadmaps() {
+        const cardFields = "title slug shortDescription coverImage category difficulty duration rating totalRatings createdAt";
+        return Roadmap.find({ isPublished: true })
+            .sort({ rating: -1, totalRatings: -1 })
+            .limit(8)
+            .select(cardFields)
+            .lean();
+    }
+    /**
+     * Fetch 8 most recently created roadmaps, sorted by createdAt descending.
+     * Returns lightweight card data only.
+     */
+    static async getLatestRoadmaps() {
+        const cardFields = "title slug shortDescription coverImage category difficulty duration rating totalRatings createdAt";
+        return Roadmap.find({ isPublished: true })
+            .sort({ createdAt: -1 })
+            .limit(8)
+            .select(cardFields)
+            .lean();
+    }
 }

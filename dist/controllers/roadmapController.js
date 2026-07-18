@@ -1,5 +1,6 @@
 import { RoadmapService } from "../services/roadmapService.js";
 import { queryRoadmapValidation } from "../validations/roadmapValidation.js";
+import { sendOk } from "../utils/apiResponse.js";
 export class RoadmapController {
     /**
      * GET /api/roadmaps
@@ -41,6 +42,45 @@ export class RoadmapController {
                 return;
             }
             res.status(200).json(roadmap);
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    /**
+     * GET /api/roadmaps/featured
+     * Fetches the featured roadmaps (maximum 4).
+     */
+    static async getFeaturedRoadmaps(req, res, next) {
+        try {
+            const roadmaps = await RoadmapService.getFeaturedRoadmaps();
+            sendOk(res, 200, roadmaps);
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    /**
+     * GET /api/roadmaps/popular
+     * Fetches top 8 highest-rated roadmaps.
+     */
+    static async getPopularRoadmaps(req, res, next) {
+        try {
+            const roadmaps = await RoadmapService.getPopularRoadmaps();
+            sendOk(res, 200, roadmaps);
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    /**
+     * GET /api/roadmaps/latest
+     * Fetches top 8 most recently created roadmaps.
+     */
+    static async getLatestRoadmaps(req, res, next) {
+        try {
+            const roadmaps = await RoadmapService.getLatestRoadmaps();
+            sendOk(res, 200, roadmaps);
         }
         catch (error) {
             next(error);
