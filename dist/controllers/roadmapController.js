@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { RoadmapService } from "../services/roadmapService.js";
 import { queryRoadmapValidation, addItemValidation } from "../validations/roadmapValidation.js";
 import { sendOk, sendFail } from "../utils/apiResponse.js";
@@ -112,6 +113,28 @@ export class RoadmapController {
             }
             const newRoadmap = await RoadmapService.createRoadmap(parsed.data);
             sendOk(res, 201, newRoadmap);
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    /**
+     * DELETE /api/roadmaps/:id
+     * Delete a career roadmap by ID.
+     */
+    static async deleteRoadmap(req, res, next) {
+        try {
+            const id = req.params.id;
+            if (typeof id !== "string" || !mongoose.Types.ObjectId.isValid(id)) {
+                sendFail(res, 400, "Invalid roadmap ID format.");
+                return;
+            }
+            const deletedRoadmap = await RoadmapService.deleteRoadmap(id);
+            if (!deletedRoadmap) {
+                sendFail(res, 404, "Roadmap not found.");
+                return;
+            }
+            sendOk(res, 200, { message: "Roadmap deleted successfully." });
         }
         catch (error) {
             next(error);

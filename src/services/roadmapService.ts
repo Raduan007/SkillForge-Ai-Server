@@ -430,4 +430,11 @@ export class RoadmapService {
 
     return newRoadmap;
   }
+
+  /**
+   * Delete a career roadmap by ID from MongoDB.
+   */
+  static async deleteRoadmap(id: string): Promise<IRoadmap | null> {
+    return Roadmap.findByIdAndDelete(id);
+  }
 }

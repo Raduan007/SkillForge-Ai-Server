@@ -7,5 +7,6 @@ router.post("/", requireAuth, RoadmapController.createRoadmap);
 router.get("/featured", RoadmapController.getFeaturedRoadmaps);
 router.get("/popular", RoadmapController.getPopularRoadmaps);
 router.get("/latest", RoadmapController.getLatestRoadmaps);
+router.delete("/:id", requireAuth, RoadmapController.deleteRoadmap);
 router.get("/:slug", RoadmapController.getRoadmapBySlug);
 export default router;

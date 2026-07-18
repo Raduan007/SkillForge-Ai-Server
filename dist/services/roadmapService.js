@@ -401,4 +401,10 @@ export class RoadmapService {
         });
         return newRoadmap;
     }
+    /**
+     * Delete a career roadmap by ID from MongoDB.
+     */
+    static async deleteRoadmap(id) {
+        return Roadmap.findByIdAndDelete(id);
+    }
 }
