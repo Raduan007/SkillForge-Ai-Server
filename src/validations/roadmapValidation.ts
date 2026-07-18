@@ -27,3 +27,14 @@ export const queryRoadmapValidation = z.object({
   difficulty: z.string().optional(),
   sort: z.enum(["newest", "rating", "title"]).optional().default("newest"),
 });
+
+export const addItemValidation = z.object({
+  title: z.string().min(2, "Title must be at least 2 characters"),
+  shortDescription: z.string().min(10, "Short description must be at least 10 characters"),
+  fullDescription: z.string().min(30, "Full description must be at least 30 characters"),
+  category: z.string().min(1, "Category is required"),
+  difficulty: z.enum(["Beginner", "Intermediate", "Advanced"]),
+  duration: z.string().min(1, "Duration is required"),
+  rating: z.number().min(1.0).max(5.0).optional().default(4.5),
+  coverImage: z.string().min(1, "Cover image URL is required"),
+});

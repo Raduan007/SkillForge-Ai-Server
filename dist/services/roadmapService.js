@@ -366,4 +366,39 @@ export class RoadmapService {
         const categories = await Roadmap.distinct("category", { isPublished: true });
         return categories.sort((a, b) => a.localeCompare(b));
     }
+    /**
+     * Create and register a new career roadmap in MongoDB.
+     * Generates a unique, URL-friendly slug based on the title.
+     */
+    static async createRoadmap(input) {
+        const { title, shortDescription, fullDescription, coverImage, category, difficulty, duration, rating } = input;
+        // 1. Generate slug base
+        const baseSlug = title
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/(^-|-$)+/g, "");
+        // 2. Ensure slug uniqueness in database
+        let uniqueSlug = baseSlug;
+        let counter = 1;
+        while (await Roadmap.findOne({ slug: uniqueSlug })) {
+            uniqueSlug = `${baseSlug}-${counter}`;
+            counter++;
+        }
+        // 3. Save roadmap to database
+        const newRoadmap = await Roadmap.create({
+            title,
+            slug: uniqueSlug,
+            shortDescription,
+            fullDescription,
+            coverImage,
+            category,
+            difficulty,
+            duration,
+            rating: rating || 4.5,
+            isFeatured: false,
+            isPublished: true,
+        });
+        return newRoadmap;
+    }
 }

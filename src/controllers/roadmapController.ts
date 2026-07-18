@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { RoadmapService } from "../services/roadmapService.js";
-import { queryRoadmapValidation } from "../validations/roadmapValidation.js";
-import { sendOk } from "../utils/apiResponse.js";
+import { queryRoadmapValidation, addItemValidation } from "../validations/roadmapValidation.js";
+import { sendOk, sendFail } from "../utils/apiResponse.js";
 
 export class RoadmapController {
   /**
@@ -100,6 +100,25 @@ export class RoadmapController {
     try {
       const categories = await RoadmapService.getCategories();
       sendOk(res, 200, categories);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/roadmaps
+   * Create and register a new career roadmap.
+   */
+  static async createRoadmap(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const parsed = addItemValidation.safeParse(req.body);
+      if (!parsed.success) {
+        sendFail(res, 400, "Validation failed", parsed.error.issues);
+        return;
+      }
+
+      const newRoadmap = await RoadmapService.createRoadmap(parsed.data);
+      sendOk(res, 201, newRoadmap);
     } catch (error) {
       next(error);
     }
