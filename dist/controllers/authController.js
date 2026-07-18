@@ -1,5 +1,6 @@
 import * as authService from "../services/authService.js";
 import { registerSchema, loginSchema } from "../validations/authValidation.js";
+import { verifyAccessToken } from "../utils/jwtUtils.js";
 /**
  * Register a new user.
  * POST /api/auth/register
@@ -84,16 +85,94 @@ export const login = async (req, res) => {
  * Get current user profile.
  * GET /api/auth/me
  *
- * NOTE: Currently a mock implementation as auth middleware is not yet implemented.
- * This will be updated to use req.user populated by the auth middleware.
+ * Extracts the JWT token from the Authorization header and verifies it manually.
  */
 export const me = async (req, res) => {
-    // TODO: Implement actual logic once auth middleware is ready
-    // It should look something like:
-    // if (!req.user) { return res.status(401).json(...) }
-    // const user = await authService.getUserById(req.user.sub);
-    res.status(501).json({
-        success: false,
-        error: "Not implemented: Requires auth middleware.",
-    });
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            res.status(401).json({
+                success: false,
+                error: "Authentication required. Please provide a Bearer token in the Authorization header.",
+            });
+            return;
+        }
+        const token = authHeader.split(" ")[1];
+        if (!token) {
+            res.status(401).json({
+                success: false,
+                error: "Authentication token missing.",
+            });
+            return;
+        }
+        // Verify token
+        let decoded;
+        try {
+            decoded = verifyAccessToken(token);
+        }
+        catch (err) {
+            if (err.name === "TokenExpiredError") {
+                res.status(401).json({
+                    success: false,
+                    error: "Authentication token has expired.",
+                });
+                return;
+            }
+            res.status(401).json({
+                success: false,
+                error: "Invalid authentication token.",
+            });
+            return;
+        }
+        if (!decoded.sub) {
+            res.status(401).json({
+                success: false,
+                error: "Invalid authentication token payload.",
+            });
+            return;
+        }
+        // Fetch user details
+        const user = await authService.getUserById(decoded.sub);
+        if (!user) {
+            res.status(404).json({
+                success: false,
+                error: "User not found.",
+            });
+            return;
+        }
+        if (!user.isActive) {
+            res.status(403).json({
+                success: false,
+                error: "Your account has been deactivated. Please contact support.",
+            });
+            return;
+        }
+        // Convert Mongoose document to plain SafeUser
+        const safeUser = {
+            _id: user._id.toString(),
+            name: user.name,
+            email: user.email,
+            avatar: user.avatar ?? null,
+            provider: user.provider,
+            role: user.role,
+            isVerified: user.isVerified,
+            isActive: user.isActive,
+            lastLogin: user.lastLogin ?? null,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+        };
+        res.status(200).json({
+            success: true,
+            data: {
+                user: safeUser,
+            },
+        });
+    }
+    catch (error) {
+        console.error("[AuthController] me error:", error);
+        res.status(500).json({
+            success: false,
+            error: "An unexpected error occurred while fetching user profile.",
+        });
+    }
 };
