@@ -48,7 +48,11 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    sendOk(res, 201, result.data);
+    sendOk(res, 201, {
+      message: "Account created successfully.",
+      accessToken: result.data.accessToken,
+      user: result.data.user,
+    });
   } catch (err) {
     console.error("[AuthController] register:", err);
     sendFail(res, 500, "An unexpected error occurred during registration.");
@@ -84,7 +88,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    sendOk(res, 200, result.data);
+    sendOk(res, 200, {
+      message: "Login successful.",
+      accessToken: result.data.accessToken,
+      user: result.data.user,
+    });
   } catch (err) {
     console.error("[AuthController] login:", err);
     sendFail(res, 500, "An unexpected error occurred during login.");
