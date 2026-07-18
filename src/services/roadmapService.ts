@@ -77,6 +77,13 @@ export class RoadmapService {
   }
 
   /**
+   * Fetch single roadmap details by ID.
+   */
+  static async getRoadmapById(id: string): Promise<IRoadmap | null> {
+    return Roadmap.findById(id);
+  }
+
+  /**
    * Seed Mock Roadmaps database on connection if empty.
    */
   static async seedMockRoadmaps() {

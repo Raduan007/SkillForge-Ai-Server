@@ -49,6 +49,28 @@ export class RoadmapController {
         }
     }
     /**
+     * GET /api/roadmaps/:id
+     * Fetches a single roadmap by its ID.
+     */
+    static async getRoadmapById(req, res, next) {
+        try {
+            const id = req.params.id;
+            if (typeof id !== "string" || !mongoose.Types.ObjectId.isValid(id)) {
+                sendFail(res, 400, "Invalid roadmap ID format.");
+                return;
+            }
+            const roadmap = await RoadmapService.getRoadmapById(id);
+            if (!roadmap) {
+                sendFail(res, 404, "Roadmap not found.");
+                return;
+            }
+            sendOk(res, 200, roadmap);
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    /**
      * GET /api/roadmaps/featured
      * Fetches the featured roadmaps (maximum 4).
      */

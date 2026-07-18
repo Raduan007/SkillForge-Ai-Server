@@ -1,9 +1,9 @@
+import "./config/loadEnv.js";
 import express from "express";
 import cors from "cors";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import dotenv from "dotenv";
 import mongoose from "mongoose";
 import { RoadmapService } from "./services/roadmapService.js";
 import roadmapRouter from "./routes/roadmapRoutes.js";
@@ -20,8 +20,6 @@ if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
     // Ignore DNS override errors
   }
 }
-
-dotenv.config();
 
 // ─── Environment Validation ──────────────────────────────────────────────────
 // Importing jwtConfig triggers validation of required JWT environment variables.

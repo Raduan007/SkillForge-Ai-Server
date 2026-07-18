@@ -60,6 +60,12 @@ export class RoadmapService {
         return Roadmap.findOne({ slug: slug.toLowerCase(), isPublished: true });
     }
     /**
+     * Fetch single roadmap details by ID.
+     */
+    static async getRoadmapById(id) {
+        return Roadmap.findById(id);
+    }
+    /**
      * Seed Mock Roadmaps database on connection if empty.
      */
     static async seedMockRoadmaps() {
