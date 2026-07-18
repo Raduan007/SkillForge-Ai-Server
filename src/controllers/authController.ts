@@ -15,7 +15,7 @@
 
 import type { Request, Response } from "express";
 import * as authService from "../services/authService.js";
-import { registerSchema, loginSchema } from "../validations/authValidation.js";
+import { registerSchema, loginSchema, googleLoginSchema } from "../validations/authValidation.js";
 import { verifyAccessToken } from "../utils/jwtUtils.js";
 import { sendOk, sendFail } from "../utils/apiResponse.js";
 import type { SafeUser } from "../types/authTypes.js";
@@ -190,3 +190,39 @@ export const me = async (req: Request, res: Response): Promise<void> => {
     sendFail(res, 500, "An unexpected error occurred while fetching your profile.");
   }
 };
+
+/**
+ * Google Sign-In and Registration.
+ * POST /api/auth/google
+ *
+ * 1. Validate request body (Zod).
+ * 2. Verify Google Token and fetch profile details.
+ * 3. Login existing user or register new user.
+ * 4. Return JWT + SafeUser.
+ */
+export const googleLogin = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const parsed = googleLoginSchema.safeParse(req.body);
+    if (!parsed.success) {
+      sendFail(res, 400, "Validation failed", parsed.error.issues);
+      return;
+    }
+
+    const result = await authService.loginOrRegisterGoogle(parsed.data.idToken);
+    if (!result.success) {
+      sendFail(res, result.statusCode, result.error);
+      return;
+    }
+
+    // Return flattened standardized response shape
+    sendOk(res, 200, {
+      message: "Google login successful.",
+      accessToken: result.data.accessToken,
+      user: result.data.user,
+    });
+  } catch (err) {
+    console.error("[AuthController] googleLogin error:", err);
+    sendFail(res, 500, "An unexpected error occurred during Google login.");
+  }
+};
+

@@ -13,11 +13,13 @@
  *   - All functions return ServiceResult<T> — never throw to the caller.
  */
 import bcrypt from "bcrypt";
+import { OAuth2Client } from "google-auth-library";
 import User from "../models/User.js";
 import { generateAccessToken } from "../utils/jwtUtils.js";
 // ─── Constants ───────────────────────────────────────────────────────────────
 /** bcrypt work factor — high enough to be secure, low enough to be fast. */
 const SALT_ROUNDS = 12;
+const oauth2Client = new OAuth2Client();
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 /**
  * Strips the password hash and converts the Mongoose document to a plain
@@ -201,4 +203,101 @@ export async function getUserByEmail(email) {
  */
 export async function getUserById(id) {
     return User.findById(id);
+}
+/**
+ * Authenticate or register a user using a Google ID token.
+ *
+ * Steps:
+ *  1. Verify the ID token signature and audience with Google's library.
+ *  2. Extract name, email, and avatar from the ticket payload.
+ *  3. Search for an existing user by email:
+ *     - If found: update lastLogin timestamp and save.
+ *     - If not found: create a new user with provider = "google" and no password.
+ *  4. Issue an access token.
+ *  5. Return safe user + token (no password hash).
+ *
+ * @param idToken - The Google ID Token string sent from frontend.
+ * @returns ServiceResult with user + token on success, or an error descriptor.
+ */
+export async function loginOrRegisterGoogle(idToken) {
+    try {
+        const clientId = process.env.GOOGLE_CLIENT_ID;
+        if (!clientId) {
+            console.error("[AuthService] GOOGLE_CLIENT_ID is not configured in .env");
+            return {
+                success: false,
+                error: "Google Authentication is not configured on this server.",
+                statusCode: 500,
+            };
+        }
+        // Verify Google ID Token
+        let ticket;
+        try {
+            ticket = await oauth2Client.verifyIdToken({
+                idToken,
+                audience: clientId,
+            });
+        }
+        catch (err) {
+            console.error("[AuthService] Google token verification failed:", err);
+            return {
+                success: false,
+                error: "Invalid or expired Google token.",
+                statusCode: 401,
+            };
+        }
+        const payload = ticket.getPayload();
+        if (!payload || !payload.email) {
+            return {
+                success: false,
+                error: "Google token did not contain email information.",
+                statusCode: 400,
+            };
+        }
+        const email = payload.email.toLowerCase().trim();
+        const name = payload.name || payload.given_name || "Google User";
+        const avatar = payload.picture || null;
+        // Check if user exists
+        let user = await User.findOne({ email });
+        if (user) {
+            // Existing user logging in - update lastLogin
+            user.lastLogin = new Date();
+            if (avatar && !user.avatar) {
+                user.avatar = avatar;
+            }
+            await user.save();
+        }
+        else {
+            // New user registering - create new account with provider = "google"
+            // Password is left undefined/empty
+            user = await User.create({
+                name,
+                email,
+                avatar,
+                provider: "google",
+                isVerified: payload.email_verified || false,
+            });
+        }
+        // Generate JWT access token
+        const accessToken = generateAccessToken({
+            sub: user._id.toString(),
+            email: user.email,
+            provider: "google",
+        });
+        return {
+            success: true,
+            data: {
+                user: toSafeUser(user),
+                accessToken,
+            },
+        };
+    }
+    catch (err) {
+        console.error("[AuthService] loginOrRegisterGoogle error:", err);
+        return {
+            success: false,
+            error: "Google authentication failed. Please try again later.",
+            statusCode: 500,
+        };
+    }
 }

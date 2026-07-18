@@ -52,3 +52,15 @@ export const loginSchema = z.object({
 
 /** Inferred TypeScript type for a validated login payload. */
 export type LoginInput = z.infer<typeof loginSchema>;
+
+// ─── Google Login ────────────────────────────────────────────────────────────
+
+export const googleLoginSchema = z.object({
+  idToken: z
+    .string()
+    .min(1, "Google ID Token is required"),
+});
+
+/** Inferred TypeScript type for a Google Login payload. */
+export type GoogleLoginInput = z.infer<typeof googleLoginSchema>;
+

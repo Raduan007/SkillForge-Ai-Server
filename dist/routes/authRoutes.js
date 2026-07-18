@@ -4,6 +4,7 @@ const router = Router();
 // ─── Local Auth Routes ───────────────────────────────────────────────────────
 router.post("/register", authController.register);
 router.post("/login", authController.login);
+router.post("/google", authController.googleLogin);
 // ─── Profile Routes ──────────────────────────────────────────────────────────
 // This route requires auth middleware, which is not implemented yet.
 router.get("/me", authController.me);
