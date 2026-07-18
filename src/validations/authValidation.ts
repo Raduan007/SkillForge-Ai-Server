@@ -64,3 +64,21 @@ export const googleLoginSchema = z.object({
 /** Inferred TypeScript type for a Google Login payload. */
 export type GoogleLoginInput = z.infer<typeof googleLoginSchema>;
 
+// ─── Update Profile ──────────────────────────────────────────────────────────
+
+export const updateProfileSchema = z.object({
+  name: z
+    .string()
+    .min(2, "Name must be at least 2 characters")
+    .max(100, "Name must be at most 100 characters")
+    .trim()
+    .optional(),
+  avatar: z
+    .string()
+    .nullable()
+    .optional(),
+});
+
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+
+

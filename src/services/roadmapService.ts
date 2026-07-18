@@ -8,7 +8,7 @@ interface GetRoadmapsParams {
   search?: string;
   category?: string;
   difficulty?: string;
-  sort: "newest" | "rating" | "title";
+  sort: "newest" | "oldest" | "highest-rated" | "lowest-rated" | "shortest-duration" | "longest-duration" | "alpha-asc" | "alpha-desc";
 }
 
 export class RoadmapService {
@@ -43,10 +43,20 @@ export class RoadmapService {
     let sortCriteria: any = {};
     if (sort === "newest") {
       sortCriteria = { createdAt: -1 };
-    } else if (sort === "rating") {
+    } else if (sort === "oldest") {
+      sortCriteria = { createdAt: 1 };
+    } else if (sort === "highest-rated") {
       sortCriteria = { rating: -1, totalRatings: -1 };
-    } else if (sort === "title") {
+    } else if (sort === "lowest-rated") {
+      sortCriteria = { rating: 1, totalRatings: 1 };
+    } else if (sort === "shortest-duration") {
+      sortCriteria = { duration: 1 };
+    } else if (sort === "longest-duration") {
+      sortCriteria = { duration: -1 };
+    } else if (sort === "alpha-asc") {
       sortCriteria = { title: 1 };
+    } else if (sort === "alpha-desc") {
+      sortCriteria = { title: -1 };
     } else {
       sortCriteria = { createdAt: -1 };
     }
@@ -101,7 +111,7 @@ export class RoadmapService {
         slug: "rm-1",
         shortDescription: "Master HTML, CSS, JavaScript, React, Tailwind CSS, and state libraries to build interactive client web apps.",
         fullDescription: "Become a proficient frontend developer. This pathway guides you from absolute code layout structures up through configuring component architectures inside modern React systems. You will learn to write semantic HTML markup, manage complex typography variables, style layouts using CSS Grid and Flexbox, write asynchronous JS API requests, and optimize client-side bundle performance.",
-        coverImage: "/careers/full-stack-dev_1784295993045.png",
+        coverImage: "/careers/full-stack-developer.png",
         category: "Frontend",
         difficulty: "Beginner",
         duration: "6 Months",
@@ -122,7 +132,7 @@ export class RoadmapService {
         slug: "rm-2",
         shortDescription: "Learn Node.js, Express, databases (SQL & NoSQL), API integrations, authorization systems, and server configurations.",
         fullDescription: "Construct resilient backends. This curriculum is designed to explore the server architectures that power modern web platforms. You will learn how to initialize server ports, map REST API routes, secure endpoints with JWT validations, construct database models, write queries, and dockerize systems to deploy onto cloud nodes.",
-        coverImage: "/careers/data_scientist_1784296030217.png",
+        coverImage: "/careers/data-scientist.png",
         category: "Backend",
         difficulty: "Intermediate",
         duration: "7 Months",
@@ -143,7 +153,7 @@ export class RoadmapService {
         slug: "rm-3",
         shortDescription: "Explore datasets, construct statistics pipelines, clean data, and deploy deep learning models using Python and TensorFlow.",
         fullDescription: "Deep dive into data mining. You will study statistical mathematical paradigms, program complex pipelines, train neural networks, and extract patterns to drive corporate intelligence decisions.",
-        coverImage: "/careers/data_scientist_1784296030217.png",
+        coverImage: "/careers/data-scientist.png",
         category: "Data Science",
         difficulty: "Advanced",
         duration: "8 Months",
@@ -164,7 +174,7 @@ export class RoadmapService {
         slug: "rm-4",
         shortDescription: "Learn graphic fundamentals, conduct research user interviews, wireframe paths, and create design systems inside Figma.",
         fullDescription: "Design intuitive interfaces. This pathway guides you through graphic layouts, user interface typography, component layouts, wireframing prototypes, and performing usability testing with real users.",
-        coverImage: "/careers/ui_ux_designer_1784296058400.png",
+        coverImage: "/careers/ui-ux-designer.png",
         category: "Design",
         difficulty: "Beginner",
         duration: "4 Months",
@@ -185,7 +195,7 @@ export class RoadmapService {
         slug: "rm-5",
         shortDescription: "Implement continuous integrations pipelines, dockerize systems, and manage Kubernetes clusters on AWS cloud environments.",
         fullDescription: "Automate system operations. Learn to configure auto-scaling cloud compute clusters, trace performance logs, manage networks, and secure server accesses using modern automation script languages.",
-        coverImage: "/careers/cloud_architect_1784296088445.png",
+        coverImage: "/careers/cloud-architect.png",
         category: "DevOps",
         difficulty: "Advanced",
         duration: "7 Months",
@@ -206,7 +216,7 @@ export class RoadmapService {
         slug: "rm-6",
         shortDescription: "Combine React frontend with Node.js backend. Learn to deploy complete full-stack apps.",
         fullDescription: "Master both client and server design. Connect frontend components with databases, secure routes, and deploy fully functional web solutions.",
-        coverImage: "/careers/full-stack-dev_1784295993045.png",
+        coverImage: "/careers/full-stack-developer.png",
         category: "Full Stack",
         difficulty: "Intermediate",
         duration: "9 Months",
@@ -227,7 +237,7 @@ export class RoadmapService {
         slug: "rm-7",
         shortDescription: "Build high-performance iOS and Android mobile apps using React Native and Expo.",
         fullDescription: "Learn to design mobile interfaces, interact with device hardware APIs (camera, geolocation), manage offline caching storage, and compile packages for app stores.",
-        coverImage: "/careers/ui_ux_designer_1784296058400.png",
+        coverImage: "/careers/ui-ux-designer.png",
         category: "Mobile",
         difficulty: "Intermediate",
         duration: "5 Months",
@@ -248,7 +258,7 @@ export class RoadmapService {
         slug: "rm-8",
         shortDescription: "Master neural networks, computer vision, natural language processing, and generative AI integrations.",
         fullDescription: "Deep dive into artificial intelligence. Develop image recognition pipelines, fine-tune LLMs, design reinforcement models, and configure GPU-accelerated computing nodes.",
-        coverImage: "/careers/data_scientist_1784296030217.png",
+        coverImage: "/careers/data-scientist.png",
         category: "AI",
         difficulty: "Advanced",
         duration: "10 Months",
@@ -269,7 +279,7 @@ export class RoadmapService {
         slug: "rm-9",
         shortDescription: "Audit network architectures, configure firewalls, identify vulnerabilities, and monitor server logs.",
         fullDescription: "Become an security investigator. Study cryptography principles, penetration testing methodologies, security information logs monitoring, and response procedures to protect assets.",
-        coverImage: "/careers/cloud_architect_1784296088445.png",
+        coverImage: "/careers/cloud-architect.png",
         category: "Cybersecurity",
         difficulty: "Intermediate",
         duration: "8 Months",
@@ -290,7 +300,7 @@ export class RoadmapService {
         slug: "rm-10",
         shortDescription: "Learn software architectures, map user stories, coordinate agile sprints, and read analytics dashboards.",
         fullDescription: "Coordinate technology teams. Bridge commercial strategy with code execution, manage engineering timelines, track product telemetry, and communicate technical updates to business boards.",
-        coverImage: "/careers/ui_ux_designer_1784296058400.png",
+        coverImage: "/careers/ui-ux-designer.png",
         category: "Management",
         difficulty: "Beginner",
         duration: "5 Months",
@@ -311,7 +321,7 @@ export class RoadmapService {
         slug: "rm-11",
         shortDescription: "Design complex database schemas, optimize queries, manage database backups, and partition tables.",
         fullDescription: "Become a database administrator. Write complex SQL statements, configure replication logs, set up automated backup processes, and troubleshoot write/read lag bottlenecks.",
-        coverImage: "/careers/data_scientist_1784296030217.png",
+        coverImage: "/careers/data-scientist.png",
         category: "Databases",
         difficulty: "Advanced",
         duration: "6 Months",
@@ -332,7 +342,7 @@ export class RoadmapService {
         slug: "rm-12",
         shortDescription: "Design enterprise cloud scaling layouts, map highly-available microservice divisions, and audit security compliance scopes.",
         fullDescription: "Model enterprise systems. Learn how to map high-level visual server layouts, coordinate migration pipelines, audit security parameters, and plan load-balancing architectures to host high-concurrency systems.",
-        coverImage: "/careers/cloud_architect_1784296088445.png",
+        coverImage: "/careers/cloud-architect.png",
         category: "Solutions Architecture",
         difficulty: "Advanced",
         duration: "6 Months",

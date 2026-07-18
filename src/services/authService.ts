@@ -343,3 +343,43 @@ export async function loginOrRegisterGoogle(
   }
 }
 
+/**
+ * Update the user's name and/or avatar in MongoDB.
+ */
+export async function updateUserProfile(
+  userId: string,
+  data: { name?: string; avatar?: string | null }
+): Promise<ServiceResult<SafeUser>> {
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      return {
+        success: false,
+        error: "User not found.",
+        statusCode: 404,
+      };
+    }
+
+    if (data.name !== undefined) {
+      user.name = data.name;
+    }
+    if (data.avatar !== undefined) {
+      user.avatar = data.avatar;
+    }
+
+    await user.save();
+
+    return {
+      success: true,
+      data: toSafeUser(user),
+    };
+  } catch (err) {
+    console.error("[AuthService] updateUserProfile error:", err);
+    return {
+      success: false,
+      error: "Failed to update profile settings.",
+      statusCode: 500,
+    };
+  }
+}
+

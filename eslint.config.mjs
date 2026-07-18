@@ -1,15 +1,6 @@
 // @ts-check
 import tseslint from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
-import { createRequire } from 'module';
-
-// TypeScript 7 does not yet expose the programmatic API required by
-// @typescript-eslint. The official workaround is to route ESLint through
-// the @typescript/typescript6 compat shim for linting while continuing to
-// build with TypeScript 7 (tsc). See:
-// https://www.typescriptlang.org/docs/handbook/typescript-tooling-in-5-minutes.html
-const require = createRequire(import.meta.url);
-const tsPath = require.resolve('@typescript/typescript6');
 
 export default [
   // ─── Global ignores ──────────────────────────────────────────────────────
@@ -25,8 +16,6 @@ export default [
       parserOptions: {
         ecmaVersion: 'latest',
         sourceType: 'module',
-        // Point @typescript-eslint at the TS6 shim path
-        typescriptPath: tsPath,
       },
     },
     plugins: {

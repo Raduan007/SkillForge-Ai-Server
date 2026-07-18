@@ -25,7 +25,16 @@ export const queryRoadmapValidation = z.object({
   search: z.string().optional(),
   category: z.string().optional(),
   difficulty: z.string().optional(),
-  sort: z.enum(["newest", "rating", "title"]).optional().default("newest"),
+  sort: z.enum([
+    "newest",
+    "oldest",
+    "highest-rated",
+    "lowest-rated",
+    "shortest-duration",
+    "longest-duration",
+    "alpha-asc",
+    "alpha-desc"
+  ]).optional().default("newest"),
 });
 
 export const addItemValidation = z.object({

@@ -44,3 +44,16 @@ export const googleLoginSchema = z.object({
         .string()
         .min(1, "Google ID Token is required"),
 });
+// ─── Update Profile ──────────────────────────────────────────────────────────
+export const updateProfileSchema = z.object({
+    name: z
+        .string()
+        .min(2, "Name must be at least 2 characters")
+        .max(100, "Name must be at most 100 characters")
+        .trim()
+        .optional(),
+    avatar: z
+        .string()
+        .nullable()
+        .optional(),
+});

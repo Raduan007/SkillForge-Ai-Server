@@ -1,5 +1,6 @@
 import { Router } from "express";
 import * as authController from "../controllers/authController.js";
+import { requireAuth } from "../utils/authMiddleware.js";
 
 const router = Router();
 
@@ -13,5 +14,6 @@ router.post("/google", authController.googleLogin);
 
 // This route requires auth middleware, which is not implemented yet.
 router.get("/me", authController.me);
+router.put("/profile", requireAuth, authController.updateProfile);
 
 export default router;

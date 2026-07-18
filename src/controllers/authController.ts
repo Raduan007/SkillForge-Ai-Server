@@ -15,7 +15,7 @@
 
 import type { Request, Response } from "express";
 import * as authService from "../services/authService.js";
-import { registerSchema, loginSchema, googleLoginSchema } from "../validations/authValidation.js";
+import { registerSchema, loginSchema, googleLoginSchema, updateProfileSchema } from "../validations/authValidation.js";
 import { verifyAccessToken } from "../utils/jwtUtils.js";
 import { sendOk, sendFail } from "../utils/apiResponse.js";
 import type { SafeUser } from "../types/authTypes.js";
@@ -214,7 +214,6 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    // Return flattened standardized response shape
     sendOk(res, 200, {
       message: "Google login successful.",
       accessToken: result.data.accessToken,
@@ -225,4 +224,39 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
     sendFail(res, 500, "An unexpected error occurred during Google login.");
   }
 };
+
+/**
+ * PUT /api/auth/profile
+ * Updates the user's name and/or avatar.
+ */
+export const updateProfile = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const parsed = updateProfileSchema.safeParse(req.body);
+    if (!parsed.success) {
+      sendFail(res, 400, "Validation failed", parsed.error.issues);
+      return;
+    }
+
+    const userId = (req as any).user?._id;
+    if (!userId) {
+      sendFail(res, 401, "Unauthorized access.");
+      return;
+    }
+
+    const result = await authService.updateUserProfile(userId.toString(), parsed.data);
+    if (!result.success) {
+      sendFail(res, result.statusCode, result.error);
+      return;
+    }
+
+    sendOk(res, 200, {
+      message: "Profile settings updated successfully.",
+      user: result.data,
+    });
+  } catch (err) {
+    console.error("[AuthController] updateProfile:", err);
+    sendFail(res, 500, "An unexpected error occurred while updating your profile settings.");
+  }
+};
+
 

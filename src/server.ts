@@ -12,6 +12,7 @@ import copilotRouter from "./routes/copilotRoutes.js";
 import authRouter from "./routes/authRoutes.js";
 import categoryRouter from "./routes/categoryRoutes.js";
 import aiRouter from "./routes/aiRoutes.js";
+import enrollmentRouter from "./routes/enrollmentRoutes.js";
 import dns from "dns";
 
 if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
@@ -108,6 +109,7 @@ app.use("/api/categories", categoryRouter);
 app.use("/api/quiz", quizRouter);
 app.use("/api/copilot", copilotRouter);
 app.use("/api/ai", aiRouter);
+app.use("/api/enrollments", enrollmentRouter);
 
 // Health check
 app.get("/api/health", (req, res) => {
