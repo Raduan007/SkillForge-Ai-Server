@@ -349,4 +349,132 @@ ${context}
   }
 });
 
+// POST /api/ai/mock-interview
+router.post("/mock-interview", requireAuth, async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
+  const { category, difficulty, messageHistory, isFinalTurn } = req.body;
+
+  if (!category || !difficulty || !messageHistory || !Array.isArray(messageHistory)) {
+    sendFail(res, 400, "Missing required fields: category, difficulty, or messageHistory");
+    return;
+  }
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    sendFail(res, 500, "Gemini API key is not configured");
+    return;
+  }
+
+  // Determine System Prompt based on whether it is the final turn
+  let systemPrompt = "";
+  if (!isFinalTurn) {
+    systemPrompt = `You are a Senior Technical Interviewer conducting a mock interview.
+The interview category is: ${category}
+The difficulty level is: ${difficulty}
+
+You must respond in strict JSON format.
+Your task is to:
+1. Evaluate the user's latest answer (if they provided one) and provide brief constructive feedback.
+2. Ask the NEXT interview question appropriate for the category and difficulty. If it's the very first message, just introduce yourself and ask the first question.
+3. Act like a real interviewer. DO NOT reveal the correct answer before the user has answered.
+4. DO NOT explain concepts, DO NOT teach, DO NOT provide tutorials, and DO NOT generate study plans. You are ONLY here to ask questions and grade the user's answer.
+5. Challenge weak answers and ask follow-up questions if needed.
+
+Output format:
+{
+  "feedback": "Your evaluation of the previous answer (if any, otherwise empty string).",
+  "nextQuestion": "The next question you are asking the candidate."
+}`;
+  } else {
+    systemPrompt = `You are a Senior Technical Interviewer conducting a mock interview.
+The interview category is: ${category}
+The difficulty level is: ${difficulty}
+
+The interview is now COMPLETE.
+You must review the entire interview transcript (message history) and provide a final comprehensive evaluation in strict JSON format.
+
+Output format:
+{
+  "scores": {
+    "technicalAccuracy": <number 0-10>,
+    "problemSolving": <number 0-10>,
+    "communication": <number 0-10>,
+    "depth": <number 0-10>,
+    "overall": <number 0-10>
+  },
+  "feedback": {
+    "strengths": ["strength 1", "strength 2"],
+    "weaknesses": ["weakness 1", "weakness 2"],
+    "improvementSuggestions": ["suggestion 1", "suggestion 2"]
+  }
+}`;
+  }
+
+  // Format history for Gemini
+  const contents = messageHistory.map((msg: any) => ({
+    role: msg.role === "assistant" ? "model" : "user",
+    parts: [{ text: msg.content }],
+  }));
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          contents,
+          systemInstruction: {
+            parts: [{ text: systemPrompt }],
+          },
+          generationConfig: {
+            responseMimeType: "application/json",
+            temperature: 0.7,
+            maxOutputTokens: 2048,
+          },
+        }),
+      }
+    );
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      console.error("[AIRoutes] Gemini Mock Interview API returned error status:", response.status, errorText);
+      sendFail(res, 502, "AI service provider returned an error state.");
+      return;
+    }
+
+    const json = await response.json();
+    const reply = json.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!reply) {
+      sendFail(res, 502, "AI service provider returned an empty response.");
+      return;
+    }
+
+    // Try to parse the reply as JSON
+    let parsedReply;
+    try {
+      parsedReply = JSON.parse(reply);
+    } catch (e) {
+      console.error("Failed to parse Gemini response as JSON:", reply);
+      sendFail(res, 502, "AI returned invalid JSON format.");
+      return;
+    }
+
+    sendOk(res, 200, parsedReply);
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === "AbortError") {
+      sendFail(res, 504, "AI chat request timed out. Please try again.");
+      return;
+    }
+    console.error("[AIRoutes] Gemini Mock Interview call exception:", err);
+    sendFail(res, 502, "Network or system error occurred while generating the mock interview response.");
+  }
+});
+
 export default router;

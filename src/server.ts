@@ -18,6 +18,7 @@ import aiRouter from "./routes/aiRoutes.js";
 import enrollmentRouter from "./routes/enrollmentRoutes.js";
 import progressRouter from "./routes/progressRoutes.js";
 import achievementRouter from "./routes/achievementRoutes.js";
+import interviewRouter from "./routes/interviewRoutes.js";
 import dns from "dns";
 
 if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
@@ -129,6 +130,7 @@ app.use("/api/ai", aiRouter);
 app.use("/api/enrollments", enrollmentRouter);
 app.use("/api/progress", progressRouter);
 app.use("/api", achievementRouter);
+app.use("/api/interviews", interviewRouter);
 console.log("[Startup] routes mounted");
 
 // Health check endpoint (Safe - does not touch MongoDB, JWT, Gemini, or services)
