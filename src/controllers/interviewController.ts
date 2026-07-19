@@ -24,14 +24,14 @@ const createSessionSchema = z.object({
 
 export const getInterviews = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.userId;
+    const userId = (req as any).user?._id;
     if (!userId) {
       sendFail(res, 401, "Unauthorized");
       return;
     }
 
     const sessions = await InterviewSession.find({ userId }).sort({ completionDate: -1 });
-    sendOk(res, 200, "Interviews fetched successfully", sessions);
+    sendOk(res, 200, sessions);
   } catch (error) {
     console.error("Error fetching interviews:", error);
     sendFail(res, 500, "Internal Server Error");
@@ -40,7 +40,7 @@ export const getInterviews = async (req: Request, res: Response): Promise<void> 
 
 export const saveInterviewSession = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.userId;
+    const userId = (req as any).user?._id;
     if (!userId) {
       sendFail(res, 401, "Unauthorized");
       return;
@@ -48,7 +48,7 @@ export const saveInterviewSession = async (req: Request, res: Response): Promise
 
     const result = createSessionSchema.safeParse(req.body);
     if (!result.success) {
-      sendFail(res, 400, "Invalid request body", result.error.errors);
+      sendFail(res, 400, "Invalid request body", result.error.issues);
       return;
     }
 
@@ -66,7 +66,7 @@ export const saveInterviewSession = async (req: Request, res: Response): Promise
     });
 
     await newSession.save();
-    sendOk(res, 201, "Interview session saved successfully", newSession);
+    sendOk(res, 201, newSession);
   } catch (error) {
     console.error("Error saving interview session:", error);
     sendFail(res, 500, "Internal Server Error");
