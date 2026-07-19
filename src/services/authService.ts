@@ -258,9 +258,9 @@ export async function loginOrRegisterGoogle(
   idToken: string
 ): Promise<ServiceResult<LoginResult>> {
   try {
-    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientId = process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
     if (!clientId) {
-      console.error("[AuthService] GOOGLE_CLIENT_ID is not configured in .env");
+      console.error("[AuthService] GOOGLE_CLIENT_ID / NEXT_PUBLIC_GOOGLE_CLIENT_ID is not configured");
       return {
         success: false,
         error: "Google Authentication is not configured on this server.",

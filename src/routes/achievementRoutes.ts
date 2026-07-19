@@ -4,10 +4,7 @@ import { requireAuth } from "../utils/authMiddleware.js";
 
 const router = Router();
 
-// Protect endpoints with JWT check
-router.use(requireAuth);
-
-router.get("/achievements", AchievementController.getAchievements);
-router.get("/streak", AchievementController.getStreak);
+router.get("/achievements", requireAuth, AchievementController.getAchievements);
+router.get("/streak", requireAuth, AchievementController.getStreak);
 
 export default router;
