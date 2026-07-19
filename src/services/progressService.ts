@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Progress from "../models/Progress.js";
 import Roadmap from "../models/Roadmap.js";
 import Enrollment from "../models/Enrollment.js";
+import { AchievementService } from "./achievementService.js";
 
 export class ProgressService {
   /**
@@ -68,6 +69,9 @@ export class ProgressService {
         status: progressPercentage === 100 ? "completed" : "active"
       }
     );
+
+    // Track active learning streak and trigger potential achievements evaluations
+    await AchievementService.recordActivity(userId);
 
     return progress;
   }
