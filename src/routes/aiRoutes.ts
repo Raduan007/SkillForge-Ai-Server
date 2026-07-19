@@ -248,37 +248,43 @@ Do not return any markdown wraps (like \`\`\`json) outside the JSON output. Just
 
 // POST /api/ai/chat
 router.post("/chat", requireAuth, async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-  const { message, history } = req.body;
+  try {
+    console.log("[AI] Request received for /chat");
+    const { message, history } = req.body;
 
-  if (!message) {
-    sendFail(res, 400, "Message content is required.");
-    return;
-  }
+    if (!message) {
+      sendFail(res, 400, "Message content is required.");
+      return;
+    }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    sendFail(res, 500, "Gemini API key is not configured on this server.");
-    return;
-  }
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      sendFail(res, 500, "Gemini API key is not configured on this server.");
+      return;
+    }
 
-  // Format history to Gemini's expected contents array:
-  const contents = Array.isArray(history)
-    ? history.map((msg: any) => ({
-        role: msg.role === "user" ? "user" : "model",
-        parts: [{ text: String(msg.content) }],
-      }))
-    : [];
+    // Format history to Gemini's expected contents array:
+    const contents = Array.isArray(history)
+      ? history.map((msg: any) => ({
+          role: msg.role === "user" ? "user" : "model",
+          parts: [{ text: String(msg.content) }],
+        }))
+      : [];
 
-  // Append user's current message
-  contents.push({
-    role: "user",
-    parts: [{ text: String(message) }],
-  });
+    // Append user's current message
+    contents.push({
+      role: "user",
+      parts: [{ text: String(message) }],
+    });
 
-  const user = (req as any).user;
-  const context = await compileUserContext(user._id, user.name);
+    console.log("[AI] User authenticated");
+    const user = (req as any).user;
+    
+    console.log("[AI] Loading user context");
+    const context = await compileUserContext(user._id, user.name);
+    console.log("[AI] Context loaded");
 
-  const systemPrompt = `You are a friendly, encouraging, and highly professional Career Mentor on the SkillForge AI platform.
+    const systemPrompt = `You are a friendly, encouraging, and highly professional Career Mentor on the SkillForge AI platform.
 Your goals are to:
 - Guide the user on their learning paths and career choices.
 - Guide the user using their real platform profile, enrollments, achievements, and learning streak details:
@@ -287,10 +293,10 @@ ${context}
 - Recommend programming languages, stack components, study methodologies, interview prep tips, and portfolio projects.
 - Be concise and structure your responses cleanly with lists, bold text, and code syntax blocks.`;
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout limit
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout limit
 
-  try {
+    console.log("[AI] Calling Gemini");
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
       {
@@ -312,6 +318,7 @@ ${context}
 
     clearTimeout(timeoutId);
 
+    console.log("[AI] Gemini response received");
     if (!response.ok) {
       const errorText = await response.text().catch(() => "");
       console.error("[AIRoutes] Gemini Chat API returned error status:", response.status, errorText);
@@ -338,36 +345,40 @@ ${context}
       timestamp: new Date().toISOString(),
     });
   } catch (err: any) {
-    clearTimeout(timeoutId);
     if (err.name === "AbortError") {
       console.error("[AIRoutes] Gemini Chat API timed out after 20 seconds.");
       sendFail(res, 504, "AI chat request timed out. Please try again.");
       return;
     }
-    console.error("[AIRoutes] Gemini Chat call exception:", err);
-    sendFail(res, 502, "Network or system error occurred while generating the chat response.");
+    console.error("[AIRoutes] Unhandled exception in /chat route:");
+    console.error(err.stack || err);
+    sendFail(res, 500, "An internal server error occurred processing the chat.", err.message);
   }
 });
 
 // POST /api/ai/mock-interview
 router.post("/mock-interview", requireAuth, async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-  const { category, difficulty, messageHistory, isFinalTurn } = req.body;
+  try {
+    console.log("[AI] Request received for /mock-interview");
+    const { category, difficulty, messageHistory, isFinalTurn } = req.body;
 
-  if (!category || !difficulty || !messageHistory || !Array.isArray(messageHistory)) {
-    sendFail(res, 400, "Missing required fields: category, difficulty, or messageHistory");
-    return;
-  }
+    if (!category || !difficulty || !messageHistory || !Array.isArray(messageHistory)) {
+      sendFail(res, 400, "Missing required fields: category, difficulty, or messageHistory");
+      return;
+    }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    sendFail(res, 500, "Gemini API key is not configured");
-    return;
-  }
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      sendFail(res, 500, "Gemini API key is not configured");
+      return;
+    }
 
-  // Determine System Prompt based on whether it is the final turn
-  let systemPrompt = "";
-  if (!isFinalTurn) {
-    systemPrompt = `You are a Senior Technical Interviewer conducting a mock interview.
+    console.log("[AI] User authenticated");
+    
+    // Determine System Prompt based on whether it is the final turn
+    let systemPrompt = "";
+    if (!isFinalTurn) {
+      systemPrompt = `You are a Senior Technical Interviewer conducting a mock interview.
 The interview category is: ${category}
 The difficulty level is: ${difficulty}
 
@@ -384,8 +395,8 @@ Output format:
   "feedback": "Your evaluation of the previous answer (if any, otherwise empty string).",
   "nextQuestion": "The next question you are asking the candidate."
 }`;
-  } else {
-    systemPrompt = `You are a Senior Technical Interviewer conducting a mock interview.
+    } else {
+      systemPrompt = `You are a Senior Technical Interviewer conducting a mock interview.
 The interview category is: ${category}
 The difficulty level is: ${difficulty}
 
@@ -407,18 +418,18 @@ Output format:
     "improvementSuggestions": ["suggestion 1", "suggestion 2"]
   }
 }`;
-  }
+    }
 
-  // Format history for Gemini
-  const contents = messageHistory.map((msg: any) => ({
-    role: msg.role === "assistant" ? "model" : "user",
-    parts: [{ text: msg.content }],
-  }));
+    // Format history for Gemini
+    const contents = messageHistory.map((msg: any) => ({
+      role: msg.role === "assistant" ? "model" : "user",
+      parts: [{ text: msg.content }],
+    }));
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 20000);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
 
-  try {
+    console.log("[AI] Calling Gemini");
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`,
       {
@@ -441,6 +452,7 @@ Output format:
 
     clearTimeout(timeoutId);
 
+    console.log("[AI] Gemini response received");
     if (!response.ok) {
       const errorText = await response.text().catch(() => "");
       console.error("[AIRoutes] Gemini Mock Interview API returned error status:", response.status, errorText);
@@ -467,13 +479,13 @@ Output format:
 
     sendOk(res, 200, parsedReply);
   } catch (err: any) {
-    clearTimeout(timeoutId);
     if (err.name === "AbortError") {
       sendFail(res, 504, "AI chat request timed out. Please try again.");
       return;
     }
-    console.error("[AIRoutes] Gemini Mock Interview call exception:", err);
-    sendFail(res, 502, "Network or system error occurred while generating the mock interview response.");
+    console.error("[AIRoutes] Unhandled exception in /mock-interview route:");
+    console.error(err.stack || err);
+    sendFail(res, 500, "An internal server error occurred processing the mock interview.", err.message);
   }
 });
 
