@@ -1,8 +1,64 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { requireAuth } from "../utils/authMiddleware.js";
 import { sendOk, sendFail } from "../utils/apiResponse.js";
+import Enrollment from "../models/Enrollment.js";
+import Progress from "../models/Progress.js";
+import Achievement from "../models/Achievement.js";
+import Streak from "../models/Streak.js";
 
 const router = Router();
+
+async function compileUserContext(userId: any, name: string): Promise<string> {
+  try {
+    const enrollments = await Enrollment.find({ userId }).populate("roadmapId");
+    const progressRecords = await Progress.find({ userId }).populate("roadmapId");
+    const achievements = await Achievement.find({ userId });
+    const streak = await Streak.findOne({ userId });
+
+    const roadmapsStr = enrollments.length > 0
+      ? enrollments.map((e: any) => {
+          const title = e.roadmapId?.title || "Unknown Path";
+          const progress = e.progress || 0;
+          const status = e.status || "active";
+          return `- ${title} (${progress}% completed, status: ${status})`;
+        }).join("\n")
+      : "None";
+
+    const progressStr = progressRecords.length > 0
+      ? progressRecords.map((p: any) => {
+          const title = p.roadmapId?.title || "Unknown Path";
+          const completedCount = p.completedNodes?.length || 0;
+          return `- ${title}: Completed ${completedCount} skills: [${(p.completedNodes || []).join(", ")}] (${p.progressPercentage}% progress)`;
+        }).join("\n")
+      : "None";
+
+    const achievementsStr = achievements.length > 0
+      ? achievements.map((a: any) => `- ${a.title}: ${a.description}`).join("\n")
+      : "None";
+
+    const streakStr = streak
+      ? `${streak.currentStreak} consecutive learning days (Best record: ${streak.bestStreak} days)`
+      : "0 days";
+
+    return `User:
+${name}
+
+Enrolled Roadmaps:
+${roadmapsStr}
+
+Progress:
+${progressStr}
+
+Achievements:
+${achievementsStr}
+
+Current Streak:
+${streakStr}`;
+  } catch (error) {
+    console.error("Error compiling user context:", error);
+    return `User:\n${name}\n\nEnrolled Roadmaps:\nNone\n\nProgress:\nNone\n\nAchievements:\nNone\n\nCurrent Streak:\n0 days`;
+  }
+}
 
 // POST /api/ai/roadmap
 router.post("/roadmap", requireAuth, async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
@@ -152,7 +208,6 @@ router.post("/chat", requireAuth, async (req: Request, res: Response, _next: Nex
   }
 
   // Format history to Gemini's expected contents array:
-  // [{ role: 'user'|'model', parts: [{ text: '...' }] }]
   const contents = Array.isArray(history)
     ? history.map((msg: any) => ({
         role: msg.role === "user" ? "user" : "model",
@@ -166,9 +221,14 @@ router.post("/chat", requireAuth, async (req: Request, res: Response, _next: Nex
     parts: [{ text: String(message) }],
   });
 
+  const user = (req as any).user;
+  const context = await compileUserContext(user._id, user.name);
+
   const systemPrompt = `You are a friendly, encouraging, and highly professional Career Mentor on the SkillForge AI platform.
 Your goals are to:
 - Guide the user on their learning paths and career choices.
+- Guide the user using their real platform profile, enrollments, achievements, and learning streak details:
+${context}
 - Explain technical programming concepts clearly (e.g. databases, programming languages, TypeScript generics, framework comparisons like React vs Vue).
 - Recommend programming languages, stack components, study methodologies, interview prep tips, and portfolio projects.
 - Be concise and structure your responses cleanly with lists, bold text, and code syntax blocks.`;

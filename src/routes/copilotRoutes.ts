@@ -1,6 +1,63 @@
 import { Router, Request, Response } from "express";
+import { requireAuth } from "../utils/authMiddleware.js";
+import Enrollment from "../models/Enrollment.js";
+import Progress from "../models/Progress.js";
+import Achievement from "../models/Achievement.js";
+import Streak from "../models/Streak.js";
 
 const router = Router();
+
+async function compileUserContext(userId: any, name: string): Promise<string> {
+  try {
+    const enrollments = await Enrollment.find({ userId }).populate("roadmapId");
+    const progressRecords = await Progress.find({ userId }).populate("roadmapId");
+    const achievements = await Achievement.find({ userId });
+    const streak = await Streak.findOne({ userId });
+
+    const roadmapsStr = enrollments.length > 0
+      ? enrollments.map((e: any) => {
+          const title = e.roadmapId?.title || "Unknown Path";
+          const progress = e.progress || 0;
+          const status = e.status || "active";
+          return `- ${title} (${progress}% completed, status: ${status})`;
+        }).join("\n")
+      : "None";
+
+    const progressStr = progressRecords.length > 0
+      ? progressRecords.map((p: any) => {
+          const title = p.roadmapId?.title || "Unknown Path";
+          const completedCount = p.completedNodes?.length || 0;
+          return `- ${title}: Completed ${completedCount} skills: [${(p.completedNodes || []).join(", ")}] (${p.progressPercentage}% progress)`;
+        }).join("\n")
+      : "None";
+
+    const achievementsStr = achievements.length > 0
+      ? achievements.map((a: any) => `- ${a.title}: ${a.description}`).join("\n")
+      : "None";
+
+    const streakStr = streak
+      ? `${streak.currentStreak} consecutive learning days (Best record: ${streak.bestStreak} days)`
+      : "0 days";
+
+    return `User:
+${name}
+
+Enrolled Roadmaps:
+${roadmapsStr}
+
+Progress:
+${progressStr}
+
+Achievements:
+${achievementsStr}
+
+Current Streak:
+${streakStr}`;
+  } catch (error) {
+    console.error("Error compiling user context:", error);
+    return `User:\n${name}\n\nEnrolled Roadmaps:\nNone\n\nProgress:\nNone\n\nAchievements:\nNone\n\nCurrent Streak:\n0 days`;
+  }
+}
 
 // Simulated AI Copilot answers based on keyword triggers
 const SIMULATED_RESPONSES = [
@@ -103,7 +160,7 @@ const DEFAULT_SIMULATED_REPLIES = [
 ];
 
 // POST /api/copilot/chat
-router.post("/chat", async (req: Request, res: Response) => {
+router.post("/chat", requireAuth, async (req: Request, res: Response) => {
   const { message, currentNodeId, history } = req.body;
 
   if (!message) {
@@ -115,6 +172,9 @@ router.post("/chat", async (req: Request, res: Response) => {
 
   if (apiKey) {
     try {
+      const user = (req as any).user;
+      const context = await compileUserContext(user._id, user.name);
+
       const chatHistoryPrompt = history && history.length > 0 
         ? history.map((h: any) => `${h.role === 'user' ? 'User' : 'AI'}: ${h.content}`).join('\n')
         : "";
@@ -123,6 +183,9 @@ router.post("/chat", async (req: Request, res: Response) => {
 You are a friendly, encouraging AI Career Co-Pilot and Tutor inside the SkillForge AI platform.
 Your goal is to guide the user on their learning journey, write clear explanations, suggest code samples, and provide career advice.
 Current user progress context: The user is currently studying the roadmap node: ${currentNodeId || 'General Career Goals'}.
+
+Here is the user's real platform database state to guide your answers:
+${context}
 
 Conversation history:
 ${chatHistoryPrompt}
