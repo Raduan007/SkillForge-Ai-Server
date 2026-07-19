@@ -16,8 +16,8 @@
 function requireEnv(name) {
     const value = process.env[name];
     if (!value || value.trim() === '') {
-        throw new Error(`[JWT Config] Missing required environment variable: ${name}\n` +
-            `  → Add it to your .env file. See .env.example for guidance.`);
+        console.error(`[CRITICAL CONFIG ERROR] Missing required environment variable: ${name}`);
+        return "MISSING_CONFIG_FALLBACK";
     }
     return value;
 }
