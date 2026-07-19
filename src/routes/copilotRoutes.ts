@@ -4,6 +4,9 @@ import Enrollment from "../models/Enrollment.js";
 import Progress from "../models/Progress.js";
 import Achievement from "../models/Achievement.js";
 import Streak from "../models/Streak.js";
+import { ProgressAnalyzerService } from "../services/progressAnalyzerService.js";
+import { CompletionForecastEngine } from "../services/completionForecastEngine.js";
+import { RecommendationEngine } from "../services/recommendationEngine.js";
 
 const router = Router();
 
@@ -39,6 +42,26 @@ async function compileUserContext(userId: any, name: string): Promise<string> {
       ? `${streak.currentStreak} consecutive learning days (Best record: ${streak.bestStreak} days)`
       : "0 days";
 
+    // Run AI Learning Analytics Engines
+    const analysis = await ProgressAnalyzerService.analyze(userId.toString());
+    const forecast = await CompletionForecastEngine.forecast(userId.toString(), analysis.currentStreak);
+    const recommendations = await RecommendationEngine.generate(userId.toString());
+
+    // Compile Forecast String
+    const forecastStr = forecast.roadmapForecasts.length > 0
+      ? forecast.roadmapForecasts.map((f: any) => {
+          return `- "${f.title}": ${f.remainingNodes} remaining skills. Estimated ${f.daysToComplete} days to complete (based on rate of ${f.progressRate} nodes/day).`;
+        }).join("\n")
+      : "None";
+
+    // Compile Motivation Coaching Message
+    let motivationMessage = "You are doing great! Keep setting incremental daily goals to maintain your progress.";
+    if (analysis.averageProgress < 20) {
+      motivationMessage = "It looks like you are just getting started or taking a small pause. Try setting a smaller, micro-goal of completing just one skill node today to rebuild your learning momentum!";
+    } else if (analysis.averageProgress >= 50) {
+      motivationMessage = "Outstanding work! You have mastered a significant portion of your active pathways. Consider exploring an Advanced learning roadmap next, or begin building your active portfolio project to solidify your skills!";
+    }
+
     return `User:
 ${name}
 
@@ -52,7 +75,38 @@ Achievements:
 ${achievementsStr}
 
 Current Streak:
-${streakStr}`;
+${streakStr}
+
+--- LEARNING ANALYTICS REPORT ---
+Total Enrolled: ${analysis.totalEnrolled}
+Active pathways: ${analysis.activeCount}
+Completed pathways: ${analysis.completedCount}
+Average Progress: ${analysis.averageProgress}%
+Achievements: ${analysis.achievementCount}
+Current Streak: ${analysis.currentStreak} days
+Last Active Date: ${analysis.lastActivityDate ? new Date(analysis.lastActivityDate).toLocaleDateString() : "No activity recorded yet"}
+
+Strengths:
+${analysis.strengths.map(s => `- ${s}`).join("\n")}
+
+Weaknesses:
+${analysis.weaknesses.map(w => `- ${w}`).join("\n")}
+
+Completion Forecast:
+${forecastStr}
+- Total estimated days remaining: ${forecast.totalDaysToCompleteAll} days
+
+Learning Recommendations:
+- Next Skill To Learn: ${recommendations.nextSkill}
+- Target Roadmap: ${recommendations.nextRoadmapTitle}
+- Suggested Portfolio Project: "${recommendations.suggestedProject.title}"
+  Description: ${recommendations.suggestedProject.description}
+
+7-Day Study Plan:
+${recommendations.studyPlan.map(day => `- ${day}`).join("\n")}
+
+Motivation Coach Note:
+${motivationMessage}`;
   } catch (error) {
     console.error("Error compiling user context:", error);
     return `User:\n${name}\n\nEnrolled Roadmaps:\nNone\n\nProgress:\nNone\n\nAchievements:\nNone\n\nCurrent Streak:\n0 days`;
