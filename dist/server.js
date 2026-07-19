@@ -130,6 +130,9 @@ app.post("/api/profile/update-streak", (req, res) => {
     app.locals.writeDB(db);
     res.json(profile);
 });
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
+if (!process.env.VERCEL) {
+    app.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`);
+    });
+}
+export default app;
