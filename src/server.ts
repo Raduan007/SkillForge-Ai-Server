@@ -1,4 +1,7 @@
+console.log("[Startup] server boot start");
 import "./config/loadEnv.js";
+console.log("[Startup] env loaded");
+
 import express from "express";
 import cors from "cors";
 import fs from "fs";
@@ -25,12 +28,11 @@ if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
 
 // ─── Environment Validation ──────────────────────────────────────────────────
 // Importing jwtConfig triggers validation of required JWT environment variables.
-// If any are missing the module throws and the process exits before binding a port.
 import { jwtConfig } from "./config/jwtConfig.js";
+console.log("[Startup] jwt loaded");
 console.log(`[JWT] Configuration loaded — access tokens expire in ${jwtConfig.accessExpiresIn}`);
 
 const __filename = fileURLToPath(import.meta.url);
-
 const __dirname = path.dirname(__filename);
 
 const app = express();
@@ -64,7 +66,12 @@ function initDB() {
   }
 }
 
-initDB();
+try {
+  initDB();
+  console.log("[Startup] json db initialized");
+} catch (err: any) {
+  console.error("[Startup warning] Failed to initialize json db:", err.message);
+}
 
 // DB Helper Functions
 app.locals.readDB = () => {
@@ -88,19 +95,27 @@ app.locals.writeDB = (data: any) => {
 // Establish MongoDB Connection & Seed
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/skillforge";
 
-mongoose
-  .connect(MONGODB_URI)
-  .then(() => {
-    console.log("Connected to MongoDB successfully!");
-    // Trigger mock roadmaps database seeding checks
-    RoadmapService.seedMockRoadmaps().catch((err) => {
-      console.error("Failed to seed mock roadmaps database:", err);
+console.log("[Startup] mongodb connection started");
+try {
+  mongoose
+    .connect(MONGODB_URI)
+    .then(() => {
+      console.log("[Startup] mongodb connected successfully!");
+      // Trigger mock roadmaps database seeding checks
+      RoadmapService.seedMockRoadmaps()
+        .then(() => {
+          console.log("[Startup] mock roadmaps seeded successfully");
+        })
+        .catch((err) => {
+          console.error("[Startup warning] Failed to seed mock roadmaps database:", err.message);
+        });
+    })
+    .catch((err) => {
+      console.error("[Startup warning] MongoDB connection warning:", err.message);
     });
-  })
-  .catch((err) => {
-    console.error("MongoDB connection warning:", err.message);
-    console.log("Verify MongoDB is running locally or specify MONGODB_URI in your .env environment.");
-  });
+} catch (err: any) {
+  console.error("[Startup warning] MongoDB connection execution crashed:", err.message);
+}
 
 // Mount Routes
 app.use("/api/auth", authRouter);
@@ -110,10 +125,27 @@ app.use("/api/quiz", quizRouter);
 app.use("/api/copilot", copilotRouter);
 app.use("/api/ai", aiRouter);
 app.use("/api/enrollments", enrollmentRouter);
+console.log("[Startup] routes mounted");
 
-// Health check
+// Health check endpoint (Safe - does not touch MongoDB, JWT, Gemini, or services)
 app.get("/api/health", (req, res) => {
-  res.json({ status: "healthy", db: mongoose.connection.readyState === 1 ? "connected" : "disconnected", timestamp: new Date() });
+  res.json({
+    status: "healthy",
+    db: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+    timestamp: new Date().toISOString(),
+    env: {
+      MONGODB_URI: process.env.MONGODB_URI ? "present" : "missing",
+      JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET ? "present" : "missing",
+      JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET ? "present" : "missing",
+      ACCESS_TOKEN_EXPIRES: process.env.ACCESS_TOKEN_EXPIRES || "not set",
+      REFRESH_TOKEN_EXPIRES: process.env.REFRESH_TOKEN_EXPIRES || "not set",
+      GEMINI_API_KEY: process.env.GEMINI_API_KEY ? "present" : "missing",
+      GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ? "present" : "missing",
+      PORT: process.env.PORT || "not set",
+      NODE_ENV: process.env.NODE_ENV || "not set",
+      VERCEL: process.env.VERCEL || "not set"
+    }
+  });
 });
 
 // Profile endpoints
@@ -149,6 +181,11 @@ app.post("/api/profile/update-streak", (req, res) => {
   res.json(profile);
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}
+
+console.log("[Startup] server export ready");
+export default app;
