@@ -38,6 +38,8 @@ export interface TokenPayload {
    * Only populated when provider === "google".
    */
   picture?: string;
+  /** User's system role. */
+  role?: "user" | "admin";
 }
 
 /**

@@ -54,7 +54,12 @@ export async function requireAuth(
       return;
     }
 
-    req.user = user;
+    req.user = {
+      _id: user._id.toString(),
+      userId: user._id.toString(),
+      email: user.email,
+      role: user.role,
+    };
     next();
   } catch (err) {
     const name = err instanceof Error ? err.name : "";

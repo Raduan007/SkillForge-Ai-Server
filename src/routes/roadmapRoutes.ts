@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { RoadmapController } from "../controllers/roadmapController.js";
 import { requireAuth } from "../utils/authMiddleware.js";
+import { requireAdmin } from "../middleware/requireAdmin.js";
 
 import mongoose from "mongoose";
 import { sendFail } from "../utils/apiResponse.js";
@@ -8,11 +9,11 @@ import { sendFail } from "../utils/apiResponse.js";
 const router = Router();
 
 router.get("/", RoadmapController.getRoadmaps);
-router.post("/", requireAuth, RoadmapController.createRoadmap);
+router.post("/", requireAuth, requireAdmin, RoadmapController.createRoadmap);
 router.get("/featured", RoadmapController.getFeaturedRoadmaps);
 router.get("/popular", RoadmapController.getPopularRoadmaps);
 router.get("/latest", RoadmapController.getLatestRoadmaps);
-router.delete("/:id", requireAuth, RoadmapController.deleteRoadmap);
+router.delete("/:id", requireAuth, requireAdmin, RoadmapController.deleteRoadmap);
 
 // Match 24-character IDs specifically and handle or return 400
 router.get("/:id", (req, res, next) => {

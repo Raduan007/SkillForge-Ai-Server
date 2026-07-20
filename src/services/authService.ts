@@ -100,6 +100,7 @@ export async function registerUser(
       sub: user._id.toString(),
       email: user.email,
       provider: "local",
+      role: user.role,
     });
 
     // 5. Return — never expose the hash
@@ -192,6 +193,7 @@ export async function loginUser(
       sub: user._id.toString(),
       email: user.email,
       provider: user.provider,
+      role: user.role,
     });
 
     // 6. Return — never expose the hash
@@ -324,6 +326,7 @@ export async function loginOrRegisterGoogle(
       sub: user._id.toString(),
       email: user.email,
       provider: "google",
+      role: user.role,
     });
 
     return {

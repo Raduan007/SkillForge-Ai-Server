@@ -72,3 +72,54 @@ export const saveInterviewSession = async (req: Request, res: Response): Promise
     sendFail(res, 500, "Internal Server Error");
   }
 };
+
+export const getInterviewById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.userId) {
+      sendFail(res, 401, "Unauthorized");
+      return;
+    }
+
+    const { id } = req.params;
+    const session = await InterviewSession.findById(id);
+
+    if (!session) {
+      sendFail(res, 404, "Interview not found");
+      return;
+    }
+
+    // Security Check: Only allow owner or admin to access
+    if (user.role !== "admin" && session.userId.toString() !== user.userId) {
+      sendFail(res, 403, "Access denied. You do not own this interview.");
+      return;
+    }
+
+    // Map to required JSON response format
+    const responseData = {
+      _id: session._id,
+      category: session.category,
+      difficulty: session.difficulty,
+      createdAt: session.completionDate || (session as any).createdAt,
+      questions: session.questions,
+      answers: session.answers,
+      scores: {
+        technicalAccuracy: session.scores?.technicalAccuracy || 0,
+        problemSolving: session.scores?.problemSolving || 0,
+        communication: session.scores?.communication || 0,
+        depth: session.scores?.depth || 0,
+        overall: session.scores?.overall || 0,
+      },
+      feedback: {
+        strengths: session.feedback?.strengths || [],
+        weaknesses: session.feedback?.weaknesses || [],
+        improvements: session.feedback?.improvementSuggestions || [],
+      }
+    };
+
+    sendOk(res, 200, responseData);
+  } catch (error) {
+    console.error("Error fetching interview by ID:", error);
+    sendFail(res, 500, "Internal Server Error");
+  }
+};
