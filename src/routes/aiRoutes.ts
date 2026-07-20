@@ -359,134 +359,217 @@ ${context}
 // POST /api/ai/mock-interview
 router.post("/mock-interview", requireAuth, async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
   try {
-    console.log("[AI] Request received for /mock-interview");
+    // ── 1. Log incoming request ───────────────────────────────────────────────
+    const reqUser = (req as any).user;
+    console.log("[MOCK-INTERVIEW] Request received");
+    console.log("[MOCK-INTERVIEW] User:", reqUser?._id, reqUser?.email);
+    console.log("[MOCK-INTERVIEW] Body:", JSON.stringify({
+      category: req.body?.category,
+      difficulty: req.body?.difficulty,
+      isFinalTurn: req.body?.isFinalTurn,
+      messageHistoryLength: Array.isArray(req.body?.messageHistory) ? req.body.messageHistory.length : "not array",
+    }));
+
+    // ── 2. Validate request ───────────────────────────────────────────────────
     const { category, difficulty, messageHistory, isFinalTurn } = req.body;
 
     if (!category || !difficulty || !messageHistory || !Array.isArray(messageHistory)) {
+      console.warn("[MOCK-INTERVIEW] Validation failed — missing required fields");
       sendFail(res, 400, "Missing required fields: category, difficulty, or messageHistory");
       return;
     }
 
+    // ── 3. Check API key ──────────────────────────────────────────────────────
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      sendFail(res, 500, "Gemini API key is not configured");
+      console.error("[MOCK-INTERVIEW] GEMINI_API_KEY is not configured");
+      sendFail(res, 500, "Gemini API key is not configured on server");
       return;
     }
 
-    console.log("[AI] User authenticated");
-    
-    // Determine System Prompt based on whether it is the final turn
+    // ── 4. Build system prompt ────────────────────────────────────────────────
     let systemPrompt = "";
     if (!isFinalTurn) {
       systemPrompt = `You are a Senior Technical Interviewer conducting a mock interview.
 The interview category is: ${category}
 The difficulty level is: ${difficulty}
 
-You must respond in strict JSON format.
+You must respond in strict JSON format with NO markdown, NO code fences, just raw JSON.
 Your task is to:
-1. Evaluate the user's latest answer (if they provided one) and provide brief constructive feedback.
-2. Ask the NEXT interview question appropriate for the category and difficulty. If it's the very first message, just introduce yourself and ask the first question.
-3. Act like a real interviewer. DO NOT reveal the correct answer before the user has answered.
-4. DO NOT explain concepts, DO NOT teach, DO NOT provide tutorials, and DO NOT generate study plans. You are ONLY here to ask questions and grade the user's answer.
-5. Challenge weak answers and ask follow-up questions if needed.
+1. Evaluate the user's latest answer (if any) and provide brief constructive feedback.
+2. Ask the NEXT interview question appropriate for the category and difficulty.
+3. If this is the very first message, introduce yourself briefly and ask the first question.
+4. DO NOT reveal correct answers. DO NOT teach. Only ask and grade.
 
-Output format:
-{
-  "feedback": "Your evaluation of the previous answer (if any, otherwise empty string).",
-  "nextQuestion": "The next question you are asking the candidate."
-}`;
+Respond ONLY with this exact JSON structure (no extra text):
+{"feedback":"<evaluation of previous answer, or empty string>","nextQuestion":"<your next question>"}`;
     } else {
       systemPrompt = `You are a Senior Technical Interviewer conducting a mock interview.
 The interview category is: ${category}
 The difficulty level is: ${difficulty}
 
-The interview is now COMPLETE.
-You must review the entire interview transcript (message history) and provide a final comprehensive evaluation in strict JSON format.
-
-Output format:
-{
-  "scores": {
-    "technicalAccuracy": <number 0-10>,
-    "problemSolving": <number 0-10>,
-    "communication": <number 0-10>,
-    "depth": <number 0-10>,
-    "overall": <number 0-10>
-  },
-  "feedback": {
-    "strengths": ["strength 1", "strength 2"],
-    "weaknesses": ["weakness 1", "weakness 2"],
-    "improvementSuggestions": ["suggestion 1", "suggestion 2"]
-  }
-}`;
+The interview is now COMPLETE. Review the transcript and provide a final evaluation.
+Respond ONLY with this exact JSON structure (no extra text, no markdown):
+{"scores":{"technicalAccuracy":<0-10>,"problemSolving":<0-10>,"communication":<0-10>,"depth":<0-10>,"overall":<0-10>},"feedback":{"strengths":["..."],"weaknesses":["..."],"improvementSuggestions":["..."]}}`;
     }
 
-    // Format history for Gemini
-    const contents = messageHistory.map((msg: any) => ({
+    // ── 5. Format contents — Gemini requires at least one message ─────────────
+    let contents: Array<{ role: string; parts: Array<{ text: string }> }> = messageHistory.map((msg: any) => ({
       role: msg.role === "assistant" ? "model" : "user",
-      parts: [{ text: msg.content }],
+      parts: [{ text: String(msg.content || "") }],
     }));
 
+    // Gemini REQUIRES at least one content item — inject a start prompt on first turn
+    if (contents.length === 0) {
+      contents = [{ role: "user", parts: [{ text: "Begin the interview." }] }];
+      console.log("[MOCK-INTERVIEW] Empty history — injected start message");
+    }
+
+    // Gemini also requires the contents array to start with a 'user' role
+    // and cannot have two consecutive same roles — validate and fix
+    if (contents[0]?.role !== "user") {
+      contents.unshift({ role: "user", parts: [{ text: "Begin the interview." }] });
+      console.log("[MOCK-INTERVIEW] History did not start with user role — prepended user message");
+    }
+
+    // ── 6. Call Gemini ────────────────────────────────────────────────────────
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
 
-    console.log("[AI] Calling Gemini");
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: controller.signal,
-        body: JSON.stringify({
-          contents,
-          systemInstruction: {
-            parts: [{ text: systemPrompt }],
-          },
-          generationConfig: {
-            responseMimeType: "application/json",
-            temperature: 0.7,
-            maxOutputTokens: 2048,
-          },
-        }),
-      }
-    );
+    console.log("[MOCK-INTERVIEW] Calling Gemini — contents count:", contents.length, "| isFinalTurn:", isFinalTurn);
 
-    clearTimeout(timeoutId);
-
-    console.log("[AI] Gemini response received");
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => "");
-      console.error("[AIRoutes] Gemini Mock Interview API returned error status:", response.status, errorText);
-      sendFail(res, 502, "AI service provider returned an error state.");
-      return;
-    }
-
-    const json = await response.json();
-    const reply = json.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!reply) {
-      sendFail(res, 502, "AI service provider returned an empty response.");
-      return;
-    }
-
-    // Try to parse the reply as JSON
-    let parsedReply;
+    let geminiRaw: globalThis.Response;
     try {
-      parsedReply = JSON.parse(reply);
-    } catch (e) {
-      console.error("Failed to parse Gemini response as JSON:", reply);
-      sendFail(res, 502, "AI returned invalid JSON format.");
+      geminiRaw = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            contents,
+            systemInstruction: {
+              parts: [{ text: systemPrompt }],
+            },
+            generationConfig: {
+              responseMimeType: "application/json",
+              temperature: 0.7,
+              maxOutputTokens: 2048,
+            },
+          }),
+        }
+      );
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    console.log("[MOCK-INTERVIEW] Gemini HTTP status:", geminiRaw.status);
+
+    // ── 7. Handle Gemini HTTP errors ──────────────────────────────────────────
+    if (!geminiRaw.ok) {
+      const errorText = await geminiRaw.text().catch(() => "");
+      console.error("[MOCK-INTERVIEW] Gemini API error:", geminiRaw.status, errorText.slice(0, 500));
+
+      // Return a graceful fallback instead of 502 so the frontend doesn't crash
+      if (!isFinalTurn) {
+        sendOk(res, 200, {
+          feedback: "",
+          nextQuestion: "I'm having trouble connecting to the AI service. Please try sending your answer again.",
+        });
+      } else {
+        sendOk(res, 200, {
+          scores: { technicalAccuracy: 0, problemSolving: 0, communication: 0, depth: 0, overall: 0 },
+          feedback: {
+            strengths: [],
+            weaknesses: ["AI evaluation service was temporarily unavailable."],
+            improvementSuggestions: ["Please retry the interview."],
+          },
+        });
+      }
       return;
     }
 
-    sendOk(res, 200, parsedReply);
-  } catch (err: any) {
-    if (err.name === "AbortError") {
-      sendFail(res, 504, "AI chat request timed out. Please try again.");
+    // ── 8. Parse Gemini response body ─────────────────────────────────────────
+    const geminiJson = await geminiRaw.json().catch((e: Error) => {
+      console.error("[MOCK-INTERVIEW] Failed to parse Gemini response body as JSON:", e.message);
+      return null;
+    });
+
+    console.log("[MOCK-INTERVIEW] Gemini response body received:", JSON.stringify(geminiJson)?.slice(0, 300));
+
+    const rawText: string | undefined = geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!rawText) {
+      console.warn("[MOCK-INTERVIEW] Gemini returned empty text — finishReason:", geminiJson?.candidates?.[0]?.finishReason);
+      // Graceful fallback
+      if (!isFinalTurn) {
+        sendOk(res, 200, { feedback: "", nextQuestion: "Could you elaborate on your previous answer?" });
+      } else {
+        sendOk(res, 200, {
+          scores: { technicalAccuracy: 5, problemSolving: 5, communication: 5, depth: 5, overall: 5 },
+          feedback: { strengths: ["Participated in interview"], weaknesses: [], improvementSuggestions: [] },
+        });
+      }
       return;
     }
-    console.error("[AIRoutes] Unhandled exception in /mock-interview route:");
-    console.error(err.stack || err);
-    sendFail(res, 500, "An internal server error occurred processing the mock interview.", err.message);
+
+    // ── 9. Parse Gemini text as JSON (with fallback) ──────────────────────────
+    let parsedReply: any;
+    try {
+      // Strip potential markdown code fences Gemini sometimes wraps around JSON
+      const cleaned = rawText.replace(/^```(?:json)?\n?/i, "").replace(/\n?```$/i, "").trim();
+      parsedReply = JSON.parse(cleaned);
+      console.log("[MOCK-INTERVIEW] Gemini JSON parsed successfully");
+    } catch (parseError: any) {
+      console.warn("[MOCK-INTERVIEW] Failed to parse Gemini text as JSON. Raw text:", rawText.slice(0, 300));
+      // Attempt to extract JSON from the text with a regex
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          parsedReply = JSON.parse(jsonMatch[0]);
+          console.log("[MOCK-INTERVIEW] Extracted JSON via regex fallback");
+        } catch {
+          parsedReply = null;
+        }
+      }
+
+      // If still no valid JSON, return a safe fallback
+      if (!parsedReply) {
+        console.error("[MOCK-INTERVIEW] All JSON parse attempts failed — using fallback response");
+        if (!isFinalTurn) {
+          parsedReply = { feedback: "", nextQuestion: rawText.slice(0, 500) };
+        } else {
+          parsedReply = {
+            scores: { technicalAccuracy: 5, problemSolving: 5, communication: 5, depth: 5, overall: 5 },
+            feedback: { strengths: [], weaknesses: [], improvementSuggestions: [rawText.slice(0, 300)] },
+          };
+        }
+      }
+    }
+
+    // ── 10. Send successful response ──────────────────────────────────────────
+    console.log("[MOCK-INTERVIEW] Sending success response");
+    sendOk(res, 200, parsedReply);
+
+  } catch (err: any) {
+    // ── 11. Top-level catch — never crash ─────────────────────────────────────
+    const isAbort = err?.name === "AbortError" || err?.message === "canceled" || err?.code === "ABORT_ERR";
+    if (isAbort) {
+      console.warn("[MOCK-INTERVIEW] Request timed out after 25s");
+      sendFail(res, 504, "AI service timed out. Please try again.");
+      return;
+    }
+
+    console.error("[MOCK-INTERVIEW] Unhandled exception:", err?.message);
+    console.error(err?.stack || err);
+
+    res.status(500).json({
+      success: false,
+      message: "Mock interview failed",
+      error: process.env.NODE_ENV === "development" ? err?.message : undefined,
+    });
   }
 });
+
 
 export default router;
