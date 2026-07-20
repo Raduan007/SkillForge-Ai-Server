@@ -333,11 +333,11 @@ export async function loginOrRegisterGoogle(
         accessToken,
       },
     };
-  } catch (err) {
+  } catch (err: any) {
     console.error("[AuthService] loginOrRegisterGoogle error:", err);
     return {
       success: false,
-      error: "Google authentication failed. Please try again later.",
+      error: `Google authentication failed: ${err.message}`,
       statusCode: 500,
     };
   }
