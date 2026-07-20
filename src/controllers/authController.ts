@@ -219,9 +219,14 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
       accessToken: result.data.accessToken,
       user: result.data.user,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("[AuthController] googleLogin error:", err);
-    sendFail(res, 500, "An unexpected error occurred during Google login.");
+    res.status(500).json({
+      success: false,
+      message: "An unexpected error occurred during Google login.",
+      error: err.message,
+      stack: err.stack,
+    });
   }
 };
 
